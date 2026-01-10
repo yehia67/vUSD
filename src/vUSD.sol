@@ -14,6 +14,10 @@ contract vUSD is ERC20, Ownable {
     mapping(address => bool) public isAllowedCollateral;
     mapping(address => uint256) public collateralPrice;
 
+    // User balances
+    mapping(address => mapping(address => uint256)) public collateralBalances; // user -> asset -> amount
+    mapping(address => uint256) public debt; // user -> vUSD minted
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -32,6 +36,7 @@ contract vUSD is ERC20, Ownable {
     error InvalidCollateralPrice(uint256 attempted);
     error CollateralNotAllowed(address asset);
     error InvalidAmount(uint256 attempted);
+    error TransferFailed(address from, address asset, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
@@ -94,5 +99,36 @@ contract vUSD is ERC20, Ownable {
 
     function _validateCollateralPrice(uint256 price) internal pure {
         if (price == 0) revert InvalidCollateralPrice(price);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       COLLATERAL & MINTING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Lock collateral and mint vUSD
+    function lockCollateral(address asset, uint256 amount) external {
+        if (amount == 0) revert InvalidAmount(amount);
+        if (!isAllowedCollateral[asset]) revert CollateralNotAllowed(asset);
+
+        // Transfer the collateral from user to contract
+        bool success = ERC20(asset).transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed(msg.sender, asset, amount);
+
+        // Track user collateral
+        collateralBalances[msg.sender][asset] += amount;
+        emit CollateralLocked(msg.sender, asset, amount);
+
+        // Calculate max mintable vUSD
+        uint256 price = collateralPrice[asset]; // 1e18
+        uint256 ratio = collateralRatio; // 1e18
+
+        uint256 collateralValue = (amount * price) / 1e18;
+        uint256 maxMintable = (collateralValue * 1e18) / ratio;
+
+        // Mint vUSD to user
+        _mint(msg.sender, maxMintable);
+        debt[msg.sender] += maxMintable;
+
+        emit vUSDMinted(msg.sender, maxMintable);
     }
 }
