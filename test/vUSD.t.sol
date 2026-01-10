@@ -9,6 +9,7 @@ contract vUSDTest is Test {
 
     address owner = address(this); // test contract deploys vUSD
     address alice = address(0xA11CE);
+    address bob = address(0xB0B);
 
     function setUp() public {
         token = new vUSD();
@@ -50,5 +51,76 @@ contract vUSDTest is Test {
         vm.prank(alice);
         vm.expectRevert();
         token.burn(alice, 100_000);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         COLLATERAL RATIO
+    //////////////////////////////////////////////////////////////*/
+
+    function testOwnerCanSetCollateralRatio() public {
+        uint256 newRatio = 1.5e18;
+
+        vm.expectEmit(true, false, false, true);
+        emit vUSD.CollateralRatioUpdated(0, newRatio); // old = 0 for first set
+
+        token.setCollateralRatio(newRatio);
+
+        assertEq(token.collateralRatio(), newRatio);
+    }
+
+    function testNonOwnerCannotSetCollateralRatio() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        token.setCollateralRatio(1.2e18);
+    }
+
+    function testCollateralRatioCannotBeZero() public {
+        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralRatio.selector, 0));
+        token.setCollateralRatio(0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         COLLATERAL PRICE
+    //////////////////////////////////////////////////////////////*/
+
+    function testOwnerCanSetCollateralPrice() public {
+        uint256 price = 2e18;
+
+        vm.expectEmit(true, false, false, true);
+        emit vUSD.CollateralPriceUpdated(address(bob), 0, price); // old = 0 for first set
+
+        token.setCollateralPrice(address(bob), price);
+
+        assertEq(token.collateralPrice(address(bob)), price);
+    }
+
+    function testNonOwnerCannotSetCollateralPrice() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        token.setCollateralPrice(address(bob), 3e18);
+    }
+
+    function testCollateralPriceCannotBeZero() public {
+        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralPrice.selector, 0));
+        token.setCollateralPrice(address(bob), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        ALLOWED COLLATERAL
+    //////////////////////////////////////////////////////////////*/
+
+    function testOwnerCanSetAllowedCollateral() public {
+        vm.expectEmit(true, false, false, true);
+        emit vUSD.AllowedCollateralUpdated(address(bob), false, true); // old = false
+
+        token.setAllowedCollateral(address(bob), true);
+
+        assertTrue(token.isAllowedCollateral(address(bob)));
+    }
+
+    function testNonOwnerCannotSetAllowedCollateral() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        token.setAllowedCollateral(address(bob), true);
     }
 }
