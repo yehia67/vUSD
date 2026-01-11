@@ -20,7 +20,7 @@ contract vUSD is ERC20, Ownable {
 
     // User balances
     mapping(address => mapping(address => uint256)) public collateralBalances; // user -> asset -> amount
-    mapping(address => uint256) public debt; // user -> vUSD minted
+    mapping(address => mapping(address => uint256)) public debtBalances; // user -> asset -> vUSD minted
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -43,7 +43,7 @@ contract vUSD is ERC20, Ownable {
         address indexed asset,
         uint256 collateralAmount,
         uint256 collateralUsdValue,
-        uint256 mintAmount
+        uint256 burnedAmount
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -54,7 +54,7 @@ contract vUSD is ERC20, Ownable {
     error InvalidCollateralPrice(uint256 attempted);
     error CollateralNotAllowed(address asset);
     error InvalidAmount(uint256 attempted);
-    error InsufficientCollateral(uint256 available, uint256 requested);
+    error InsufficientCollateral(address asset, uint256 available, uint256 requested);
     error InsufficientVUSDBalance(uint256 required, uint256 available);
 
     /*//////////////////////////////////////////////////////////////
@@ -106,6 +106,12 @@ contract vUSD is ERC20, Ownable {
         if (!isAllowedCollateral[asset]) revert CollateralNotAllowed(asset);
     }
 
+    function _validateCollateralUnlock(address asset, uint256 userCollateral, uint256 collateralAmount) internal pure {
+        if (userCollateral < collateralAmount) {
+            revert InsufficientCollateral(asset, userCollateral, collateralAmount);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                        COLLATERAL & MINTING
     //////////////////////////////////////////////////////////////*/
@@ -129,47 +135,52 @@ contract vUSD is ERC20, Ownable {
 
         // Mint vUSD to user
         _mint(msg.sender, maxMintable);
-        debt[msg.sender] += maxMintable;
+        debtBalances[msg.sender][asset] += maxMintable;
 
         emit vUSDMinted(msg.sender, asset, amount, collateralValueUsd, maxMintable);
     }
 
     /// @notice Repay vUSD and unlock collateral
     function unlockCollateral(address asset, uint256 collateralAmount) external {
-        if (collateralAmount == 0) revert InvalidAmount(collateralAmount);
+        _validateCollateral(asset, collateralAmount);
 
         uint256 userCollateral = collateralBalances[msg.sender][asset];
-        if (userCollateral < collateralAmount) {
-            revert InsufficientCollateral(userCollateral, collateralAmount);
+        uint256 userDebt = debtBalances[msg.sender][asset];
+
+        _validateCollateralUnlock(asset, userCollateral, collateralAmount);
+
+        // Calculate how much vUSD needs to be burned to safely unlock given collateral
+        uint256 price = collateralPrice[asset];
+        uint256 ratio = collateralRatio;
+        uint256 collateralValueUsd = Math.mulDiv(collateralAmount, price, 1e18);
+
+        // Calculate how much vUSD needs to stay backed by remaining collateral
+        uint256 remainingCollateral = userCollateral - collateralAmount;
+        uint256 remainingCollateralValueUsd = Math.mulDiv(remainingCollateral, price, 1e18);
+        uint256 vUSDToKeep = Math.mulDiv(remainingCollateralValueUsd, 1e18, ratio);
+
+        vUSDToKeep = Math.min(vUSDToKeep, userDebt); // capped by remaining debt
+        uint256 vUSDToBurn = userDebt - vUSDToKeep;
+
+        // If no vUSD needs to be burned, return collateral and return.
+        if (vUSDToBurn == 0) {
+            collateralBalances[msg.sender][asset] -= collateralAmount;
+
+            IERC20(asset).safeTransfer(msg.sender, collateralAmount);
+            emit CollateralUnlocked(msg.sender, asset, collateralAmount);
+            return;
         }
 
-        uint256 userDebt = debt[msg.sender];
-
-        if (userDebt > 0) {
-            // Calculate how much vUSD needs to be burned to safely unlock given collateral
-            uint256 price = collateralPrice[asset];
-            uint256 ratio = collateralRatio;
-            uint256 collateralValueUsd = Math.mulDiv(collateralAmount, price, 1e18);
-
-            // Calculate how much vUSD needs to stay backed by remaining collateral
-            uint256 remainingCollateral = userCollateral - collateralAmount;
-            uint256 remainingCollateralValueUsd = Math.mulDiv(remainingCollateral, price, 1e18);
-            uint256 vUSDToBlance = Math.mulDiv(remainingCollateralValueUsd, 1e18, ratio);
-
-            vUSDToBlance = Math.min(vUSDToBlance, userDebt); // capped by remaining debt
-            uint256 vUSDToBurn = userDebt - vUSDToBlance;
-
-            // Check Available vUSD to burn
-            uint256 userBalance = balanceOf(msg.sender);
-            if (userBalance < vUSDToBurn) {
-                revert InsufficientVUSDBalance(vUSDToBurn, balanceOf(msg.sender));
-            }
-
-            // Burn vUSD from user
-            _burn(msg.sender, vUSDToBurn);
-            debt[msg.sender] -= vUSDToBurn;
-            emit vUSDBurned(msg.sender, asset, collateralAmount, collateralValueUsd, vUSDToBurn);
+        // Check Available vUSD to burn
+        uint256 userBalance = balanceOf(msg.sender);
+        if (userBalance < vUSDToBurn) {
+            revert InsufficientVUSDBalance(vUSDToBurn, balanceOf(msg.sender));
         }
+
+        // Burn vUSD from user
+        _burn(msg.sender, vUSDToBurn);
+        debtBalances[msg.sender][asset] -= vUSDToBurn;
+        emit vUSDBurned(msg.sender, asset, collateralAmount, collateralValueUsd, vUSDToBurn);
 
         // Update collateral balance
         collateralBalances[msg.sender][asset] -= collateralAmount;
