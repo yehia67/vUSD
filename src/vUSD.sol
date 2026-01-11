@@ -6,7 +6,9 @@ import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract vUSD is ERC20, Ownable {
+import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+
+contract vUSD is ERC20, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
@@ -141,7 +143,7 @@ contract vUSD is ERC20, Ownable {
     }
 
     /// @notice Repay vUSD and unlock collateral
-    function unlockCollateral(address asset, uint256 collateralAmount) external {
+    function unlockCollateral(address asset, uint256 collateralAmount) external nonReentrant {
         _validateCollateral(asset, collateralAmount);
 
         uint256 userCollateral = collateralBalances[msg.sender][asset];
