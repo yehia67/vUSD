@@ -75,8 +75,72 @@ contract vUSDCollateralTest is Test {
         token.lockCollateral(address(collateral), depositAmount);
         vm.stopPrank();
 
-        assertEq(token.debt(alice), expectedMint);
+        assertEq(token.debtBalances(alice, address(collateral)), expectedMint);
         assertEq(token.balanceOf(alice), expectedMint);
+    }
+
+    function _testUnlockCollateralFull(MockERC20 collateral, uint256 price) internal {
+        _setupCollateral(address(collateral), price);
+        uint256 depositAmount = 1e18;
+
+        vm.startPrank(address(alice));
+        collateral.approve(address(token), depositAmount);
+        token.lockCollateral(address(collateral), depositAmount);
+
+        uint256 finalCollateralBalance = collateral.balanceOf(address(alice)) + depositAmount;
+
+        // Calculate collateral value and expected burn
+        uint256 collateralValueUsd = Math.mulDiv(depositAmount, price, 1e18);
+        uint256 expectedBurn = Math.mulDiv(collateralValueUsd, 1e18, 2e18);
+
+        // Expect events
+        vm.expectEmit(true, true, true, true);
+        emit vUSD.vUSDBurned(address(alice), address(collateral), depositAmount, collateralValueUsd, expectedBurn);
+
+        vm.expectEmit(true, true, true, true);
+        emit vUSD.CollateralUnlocked(address(alice), address(collateral), depositAmount);
+
+        token.unlockCollateral(address(collateral), depositAmount);
+        vm.stopPrank();
+
+        // Check final state
+        assertEq(token.collateralBalances(address(alice), address(collateral)), 0);
+        assertEq(token.debtBalances(address(alice), address(collateral)), 0);
+        assertEq(token.balanceOf(address(alice)), 0);
+        assertEq(collateral.balanceOf(address(alice)), finalCollateralBalance);
+    }
+
+    function _testUnlockCollateralPartial(MockERC20 collateral, uint256 price) internal {
+        _setupCollateral(address(collateral), price);
+
+        uint256 depositAmount = 10e18;
+
+        vm.startPrank(address(alice));
+        collateral.approve(address(token), depositAmount);
+        token.lockCollateral(address(collateral), depositAmount);
+        uint256 initialDebt = token.balanceOf(address(alice));
+
+        uint256 unlockAmount = 4e18;
+
+        uint256 collateralValueUsd = Math.mulDiv(unlockAmount, price, 1e18);
+        uint256 expectedBurn = Math.mulDiv(collateralValueUsd, 1e18, 2e18);
+        expectedBurn = Math.min(expectedBurn, initialDebt);
+
+        // Expect events
+        vm.expectEmit(true, false, false, true);
+        emit vUSD.vUSDBurned(address(alice), address(collateral), unlockAmount, collateralValueUsd, expectedBurn);
+
+        vm.expectEmit(true, true, false, true);
+        emit vUSD.CollateralUnlocked(address(alice), address(collateral), unlockAmount);
+
+        token.unlockCollateral(address(collateral), unlockAmount);
+        vm.stopPrank();
+
+        // Check final state
+        assertEq(token.debtBalances(address(alice), address(collateral)), initialDebt - expectedBurn);
+        assertEq(token.balanceOf(address(alice)), initialDebt - expectedBurn);
+        assertEq(token.collateralBalances(address(alice), address(collateral)), depositAmount - unlockAmount);
+        assertEq(collateral.balanceOf(address(token)), depositAmount - unlockAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -87,6 +151,15 @@ contract vUSDCollateralTest is Test {
         uint256 ethPrice = 2_000e18; // $2000
         _testLockCollateralSuccess(vETH, ethPrice);
     }
+
+    function testUnlockFullCollateralWithvETH() public {
+        _testUnlockCollateralFull(vETH, 2_000e18);
+    }
+
+    function testUnlockPartialCollateralWithvETH() public {
+        _testUnlockCollateralPartial(vETH, 2_000e18);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         vDOT TESTS
     //////////////////////////////////////////////////////////////*/
@@ -94,6 +167,14 @@ contract vUSDCollateralTest is Test {
     function testLockCollateralWithvDOT() public {
         uint256 dotPrice = 5e17; // $0.5
         _testLockCollateralSuccess(vDOT, dotPrice);
+    }
+
+    function testUnlockFullCollateralWithvDOT() public {
+        _testUnlockCollateralFull(vDOT, 5e17);
+    }
+
+    function testUnlockPartialCollateralWithvDOT() public {
+        _testUnlockCollateralPartial(vDOT, 5e17);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -138,20 +219,76 @@ contract vUSDCollateralTest is Test {
         _setupCollateral(address(vETH), 2_000e18);
         _setupCollateral(address(vDOT), 5e17); // $0.5
 
-        uint256 amount = 10e18;
+        uint256 amount = 1e18;
 
         vm.startPrank(alice);
 
         vETH.approve(address(token), amount);
         token.lockCollateral(address(vETH), amount);
-        uint256 ethDebt = token.debt(alice);
+        uint256 ethDebt = token.debtBalances(alice, address(vETH));
 
         vDOT.approve(address(token), amount);
         token.lockCollateral(address(vDOT), amount);
-        uint256 dotDebt = token.debt(alice) - ethDebt;
+        uint256 dotDebt = token.debtBalances(alice, address(vDOT));
 
         vm.stopPrank();
 
         assertGt(ethDebt, dotDebt);
+    }
+
+    function testUnlockCollateralFailsForZeroAmount() public {
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidAmount.selector, 0));
+        token.unlockCollateral(address(vETH), 0);
+        vm.stopPrank();
+    }
+
+    function testUnlockCollateralFailsForTooMuch() public {
+        token.setAllowedCollateral(address(vETH), true);
+        token.setCollateralPrice(address(vETH), 1e18);
+        token.setCollateralRatio(2e18);
+
+        uint256 depositAmount = 500e18;
+
+        vm.startPrank(alice);
+        vETH.approve(address(token), depositAmount);
+        token.lockCollateral(address(vETH), depositAmount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                vUSD.InsufficientCollateral.selector, address(vETH), depositAmount, depositAmount + 1
+            )
+        );
+        token.unlockCollateral(address(vETH), depositAmount + 1);
+        vm.stopPrank();
+    }
+
+    function testUnlockCollateralFailsIfInsufficientVUSDBalance() public {
+        _setupCollateral(address(vETH), 2_000e18);
+
+        uint256 depositAmount = 10e18;
+
+        vm.startPrank(alice);
+        vETH.approve(address(token), depositAmount);
+        token.lockCollateral(address(vETH), depositAmount);
+
+        uint256 minted = token.balanceOf(alice);
+
+        // Transfer all vUSD away so burn fails
+        require(token.transfer(address(0xB0B), minted), "Transfer failed");
+
+        uint256 unlockAmount = 5e18;
+        uint256 expectedBurn =
+            Math.mulDiv(Math.mulDiv(unlockAmount, token.collateralPrice(address(vETH)), 1e18), 1e18, 2e18);
+
+        vm.expectRevert(abi.encodeWithSelector(vUSD.InsufficientVUSDBalance.selector, expectedBurn, 0));
+        token.unlockCollateral(address(vETH), unlockAmount);
+        vm.stopPrank();
+
+        // Ensure state unchanged
+        assertEq(token.collateralBalances(alice, address(vETH)), depositAmount);
+        assertEq(vETH.balanceOf(address(token)), depositAmount);
+        assertEq(token.debtBalances(alice, address(vETH)), minted);
+        assertEq(token.balanceOf(alice), 0);
     }
 }
