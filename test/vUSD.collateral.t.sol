@@ -147,6 +147,57 @@ contract vUSDCollateralTest is Test {
         assertEq(collateral.balanceOf(address(token)), depositAmount - unlockAmount);
     }
 
+    function _testUnlockCollateralAfterRatioIncrease(
+        MockERC20 collateral,
+        uint256 price,
+        uint256 depositAmount,
+        address user
+    ) internal {
+        // Setup collateral
+        _setupCollateral(address(collateral), price);
+
+        // Lock collateral at initial ratio = 2
+        vm.startPrank(user);
+        collateral.approve(address(token), depositAmount);
+        token.lockCollateral(address(collateral), depositAmount);
+        vm.stopPrank();
+
+        uint256 initialDebt = token.debt(user);
+        uint256 initialBalance = token.balanceOf(user);
+        uint256 initialCollateralBalance = collateral.balanceOf(user);
+
+        // Increase collateral ratio as owner
+        token.setCollateralRatio(4e18);
+
+        // Unlock half the collateral
+        uint256 unlockAmount = depositAmount / 2;
+        uint256 keepAmount = depositAmount - unlockAmount;
+
+        // Calculate expected vUSD burn
+        uint256 collateralValueUsd = Math.mulDiv(unlockAmount, price, 1e18);
+        uint256 expectedKeep = Math.mulDiv(Math.mulDiv(depositAmount - unlockAmount, price, 1e18), 1e18, 4e18);
+        expectedKeep = Math.min(expectedKeep, initialDebt); // cannot burn more than remaining debt
+        uint256 expectedBurn = initialDebt - expectedKeep;
+
+        // Expect events
+        vm.expectEmit(true, true, true, true);
+        emit vUSD.vUSDBurned(user, address(collateral), unlockAmount, collateralValueUsd, expectedBurn);
+
+        vm.expectEmit(true, true, false, true);
+        emit vUSD.CollateralUnlocked(user, address(collateral), unlockAmount);
+
+        // Unlock collateral
+        vm.startPrank(user);
+        token.unlockCollateral(address(collateral), unlockAmount);
+        vm.stopPrank();
+
+        // Check updated state
+        assertEq(token.collateralBalances(user, address(collateral)), keepAmount);
+        assertEq(collateral.balanceOf(user), initialCollateralBalance + unlockAmount);
+        assertEq(token.debt(user), initialDebt - expectedBurn);
+        assertEq(token.balanceOf(user), initialBalance - expectedBurn);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         vETH TESTS
     //////////////////////////////////////////////////////////////*/
@@ -164,6 +215,10 @@ contract vUSDCollateralTest is Test {
         _testUnlockCollateralPartial(vETH, 2_000e18, alice);
     }
 
+    function testUnlockCollateralAfterRatioIncrease_vETH() public {
+        _testUnlockCollateralAfterRatioIncrease(vETH, 2_000e18, 8e18, alice);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         vDOT TESTS
     //////////////////////////////////////////////////////////////*/
@@ -179,6 +234,10 @@ contract vUSDCollateralTest is Test {
 
     function testUnlockPartialCollateralWithvDOT() public {
         _testUnlockCollateralPartial(vDOT, 5e17, alice);
+    }
+
+    function testUnlockCollateralAfterRatioIncrease_vDOT() public {
+        _testUnlockCollateralAfterRatioIncrease(vDOT, 5e17, 8e18, alice);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -143,28 +143,32 @@ contract vUSD is ERC20, Ownable {
             revert InsufficientCollateral(userCollateral, collateralAmount);
         }
 
-        uint256 vUSDPayload = 0;
         uint256 userDebt = debt[msg.sender];
 
         if (userDebt > 0) {
-            // Calculate how much vUSD needs to be repaid
-            uint256 price = collateralPrice[asset]; // 1e18
-            uint256 ratio = collateralRatio; // 1e18
-
+            // Calculate how much vUSD needs to be burned to safely unlock given collateral
+            uint256 price = collateralPrice[asset];
+            uint256 ratio = collateralRatio;
             uint256 collateralValueUsd = Math.mulDiv(collateralAmount, price, 1e18);
-            vUSDPayload = Math.mulDiv(collateralValueUsd, 1e18, ratio);
 
-            vUSDPayload = Math.min(vUSDPayload, userDebt); // only repay remaining debt
+            // Calculate how much vUSD needs to stay backed by remaining collateral
+            uint256 remainingCollateral = userCollateral - collateralAmount;
+            uint256 remainingCollateralValueUsd = Math.mulDiv(remainingCollateral, price, 1e18);
+            uint256 vUSDToBlance = Math.mulDiv(remainingCollateralValueUsd, 1e18, ratio);
+
+            vUSDToBlance = Math.min(vUSDToBlance, userDebt); // capped by remaining debt
+            uint256 vUSDToBurn = userDebt - vUSDToBlance;
+
             // Check Available vUSD to burn
             uint256 userBalance = balanceOf(msg.sender);
-            if (userBalance < vUSDPayload) {
-                revert InsufficientVUSDBalance(vUSDPayload, balanceOf(msg.sender));
+            if (userBalance < vUSDToBurn) {
+                revert InsufficientVUSDBalance(vUSDToBurn, balanceOf(msg.sender));
             }
 
             // Burn vUSD from user
-            _burn(msg.sender, vUSDPayload);
-            debt[msg.sender] -= vUSDPayload;
-            emit vUSDBurned(msg.sender, asset, collateralAmount, collateralValueUsd, vUSDPayload);
+            _burn(msg.sender, vUSDToBurn);
+            debt[msg.sender] -= vUSDToBurn;
+            emit vUSDBurned(msg.sender, asset, collateralAmount, collateralValueUsd, vUSDToBurn);
         }
 
         // Update collateral balance
