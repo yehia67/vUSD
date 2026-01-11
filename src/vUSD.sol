@@ -3,8 +3,12 @@ pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract vUSD is ERC20, Ownable {
+    using SafeERC20 for IERC20;
+
     /*//////////////////////////////////////////////////////////////
                                STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -26,7 +30,13 @@ contract vUSD is ERC20, Ownable {
     event CollateralPriceUpdated(address indexed asset, uint256 oldPrice, uint256 newPrice);
     event AllowedCollateralUpdated(address indexed asset, bool oldAllowed, bool newAllowed);
     event CollateralLocked(address indexed user, address indexed asset, uint256 amount);
-    event vUSDMinted(address indexed user, uint256 amount);
+    event vUSDMinted(
+        address indexed user,
+        address indexed asset,
+        uint256 collateralAmount,
+        uint256 collateralUsdValue,
+        uint256 mintAmount
+    );
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -36,18 +46,12 @@ contract vUSD is ERC20, Ownable {
     error InvalidCollateralPrice(uint256 attempted);
     error CollateralNotAllowed(address asset);
     error InvalidAmount(uint256 attempted);
-    error TransferFailed(address from, address asset, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     constructor() ERC20("vUSD Stablecoin", "vUSD") Ownable(msg.sender) {}
-
-    /// @notice Override decimals to 6 (USDC-style)
-    function decimals() public pure override returns (uint8) {
-        return 6;
-    }
 
     /*//////////////////////////////////////////////////////////////
                             MINT / BURN
@@ -101,18 +105,21 @@ contract vUSD is ERC20, Ownable {
         if (price == 0) revert InvalidCollateralPrice(price);
     }
 
+    function _validateCollateral(address asset, uint256 amount) internal view {
+        if (amount == 0) revert InvalidAmount(amount);
+        if (!isAllowedCollateral[asset]) revert CollateralNotAllowed(asset);
+    }
+
     /*//////////////////////////////////////////////////////////////
                        COLLATERAL & MINTING
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Lock collateral and mint vUSD
     function lockCollateral(address asset, uint256 amount) external {
-        if (amount == 0) revert InvalidAmount(amount);
-        if (!isAllowedCollateral[asset]) revert CollateralNotAllowed(asset);
+        _validateCollateral(asset, amount);
 
         // Transfer the collateral from user to contract
-        bool success = ERC20(asset).transferFrom(msg.sender, address(this), amount);
-        if (!success) revert TransferFailed(msg.sender, asset, amount);
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
 
         // Track user collateral
         collateralBalances[msg.sender][asset] += amount;
@@ -120,15 +127,14 @@ contract vUSD is ERC20, Ownable {
 
         // Calculate max mintable vUSD
         uint256 price = collateralPrice[asset]; // 1e18
-        uint256 ratio = collateralRatio; // 1e18
 
-        uint256 collateralValue = (amount * price) / 1e18;
-        uint256 maxMintable = (collateralValue * 1e18) / ratio;
+        uint256 collateralValueUsd = Math.mulDiv(amount, price, 1e18);
+        uint256 maxMintable = Math.mulDiv(collateralValueUsd, 1e18, collateralRatio);
 
         // Mint vUSD to user
         _mint(msg.sender, maxMintable);
         debt[msg.sender] += maxMintable;
 
-        emit vUSDMinted(msg.sender, maxMintable);
+        emit vUSDMinted(msg.sender, asset, amount, collateralValueUsd, maxMintable);
     }
 }
