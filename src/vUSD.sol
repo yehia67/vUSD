@@ -37,6 +37,14 @@ contract vUSD is ERC20, Ownable {
         uint256 collateralUsdValue,
         uint256 mintAmount
     );
+    event CollateralUnlocked(address indexed user, address indexed asset, uint256 amount);
+    event vUSDBurned(
+        address indexed user,
+        address indexed asset,
+        uint256 collateralAmount,
+        uint256 collateralUsdValue,
+        uint256 mintAmount
+    );
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -46,26 +54,14 @@ contract vUSD is ERC20, Ownable {
     error InvalidCollateralPrice(uint256 attempted);
     error CollateralNotAllowed(address asset);
     error InvalidAmount(uint256 attempted);
+    error InsufficientCollateral(uint256 available, uint256 requested);
+    error InsufficientVUSDBalance(uint256 required, uint256 available);
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     constructor() ERC20("vUSD Stablecoin", "vUSD") Ownable(msg.sender) {}
-
-    /*//////////////////////////////////////////////////////////////
-                            MINT / BURN
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Mint vUSD (only callable by owner / protocol)
-    function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount);
-    }
-
-    /// @notice Burn vUSD (only callable by owner / protocol)
-    function burn(address from, uint256 amount) external onlyOwner {
-        _burn(from, amount);
-    }
 
     /*//////////////////////////////////////////////////////////////
                           PROTOCOL CONFIG
@@ -136,5 +132,46 @@ contract vUSD is ERC20, Ownable {
         debt[msg.sender] += maxMintable;
 
         emit vUSDMinted(msg.sender, asset, amount, collateralValueUsd, maxMintable);
+    }
+
+    /// @notice Repay vUSD and unlock collateral
+    function unlockCollateral(address asset, uint256 collateralAmount) external {
+        if (collateralAmount == 0) revert InvalidAmount(collateralAmount);
+
+        uint256 userCollateral = collateralBalances[msg.sender][asset];
+        if (userCollateral < collateralAmount) {
+            revert InsufficientCollateral(userCollateral, collateralAmount);
+        }
+
+        uint256 vUSDPayload = 0;
+        uint256 userDebt = debt[msg.sender];
+
+        if (userDebt > 0) {
+            // Calculate how much vUSD needs to be repaid
+            uint256 price = collateralPrice[asset]; // 1e18
+            uint256 ratio = collateralRatio; // 1e18
+
+            uint256 collateralValueUsd = Math.mulDiv(collateralAmount, price, 1e18);
+            vUSDPayload = Math.mulDiv(collateralValueUsd, 1e18, ratio);
+
+            vUSDPayload = Math.min(vUSDPayload, userDebt); // only repay remaining debt
+            // Check Available vUSD to burn
+            uint256 userBalance = balanceOf(msg.sender);
+            if (userBalance < vUSDPayload) {
+                revert InsufficientVUSDBalance(vUSDPayload, balanceOf(msg.sender));
+            }
+
+            // Burn vUSD from user
+            _burn(msg.sender, vUSDPayload);
+            debt[msg.sender] -= vUSDPayload;
+            emit vUSDBurned(msg.sender, asset, collateralAmount, collateralValueUsd, vUSDPayload);
+        }
+
+        // Update collateral balance
+        collateralBalances[msg.sender][asset] -= collateralAmount;
+
+        // Transfer collateral back to user
+        IERC20(asset).safeTransfer(msg.sender, collateralAmount);
+        emit CollateralUnlocked(msg.sender, asset, collateralAmount);
     }
 }

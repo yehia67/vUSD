@@ -16,44 +16,6 @@ contract vUSDTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                              MINT
-    //////////////////////////////////////////////////////////////*/
-
-    function testOwnerCanMint() public {
-        token.mint(alice, 1_000_000); // 1 vUSD (6 decimals)
-
-        assertEq(token.balanceOf(alice), 1_000_000);
-        assertEq(token.totalSupply(), 1_000_000);
-    }
-
-    function testNonOwnerCannotMint() public {
-        vm.prank(alice);
-        vm.expectRevert();
-        token.mint(alice, 1_000_000);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                              BURN
-    //////////////////////////////////////////////////////////////*/
-
-    function testOwnerCanBurn() public {
-        token.mint(alice, 1_000_000);
-
-        token.burn(alice, 400_000);
-
-        assertEq(token.balanceOf(alice), 600_000);
-        assertEq(token.totalSupply(), 600_000);
-    }
-
-    function testNonOwnerCannotBurn() public {
-        token.mint(alice, 1_000_000);
-
-        vm.prank(alice);
-        vm.expectRevert();
-        token.burn(alice, 100_000);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                          COLLATERAL RATIO
     //////////////////////////////////////////////////////////////*/
 
