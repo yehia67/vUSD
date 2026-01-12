@@ -7,17 +7,17 @@ vUSD is a collateral-backed stablecoin implemented in Solidity. Users can lock s
 ```mermaid
 sequenceDiagram
     actor User
-    participant mETH
-    participant mUSD
+    participant vETH/vDOT
+    participant vUSD
 
-    User->>mETH: Approve mUSD
-    mUSD->>mETH: transferFrom(User)
-    mUSD->>mUSD: Lock mETH
-    mUSD->>User: Mint mUSD
+    User->>vETH/vDOT: Approve vUSD
+    vUSD->>vETH/vDOT: transferFrom(User)
+    vUSD->>vUSD: Lock vETH/vDOT
+    vUSD->>User: Mint vUSD
 
-    User->>mUSD: Burn mUSD
-    mUSD->>mUSD: Unlock mETH
-    mUSD->>User: Return mETH
+    User->>vUSD: Burn vUSD
+    vUSD->>vUSD: Unlock vETH/vDOT
+    vUSD->>User: Return vETH/vDOT
 ```
 ## Key Features
 
@@ -68,7 +68,3 @@ This project uses [Foundry](https://foundry.paradigm.xyz/).
 ## Inspiration
 
 The protocol is inspired by Liquity-style systems, particularly the concept of overcollateralized debt positions with explicit accounting. However, there is **no direct dependency on Liquity code**; This is an independent implementation.
-
-## Design Notes
-
-Collateral prices are assumed to be provided externally (e.g., via an oracle in a real deployment).
