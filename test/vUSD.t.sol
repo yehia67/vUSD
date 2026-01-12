@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {vUSD} from "../src/vUSD.sol";
+import {IvUSD} from "../src/interfaces/IvUSD.sol";
 
 contract vUSDTest is Test {
     vUSD public token;
@@ -23,7 +24,7 @@ contract vUSDTest is Test {
         uint256 newRatio = 1.5e18;
 
         vm.expectEmit(true, false, false, true);
-        emit vUSD.CollateralRatioUpdated(1e18, newRatio); // old = 1e18 for first set
+        emit IvUSD.CollateralRatioUpdated(1e18, newRatio); // old = 1e18 for first set
 
         token.setCollateralRatio(newRatio);
 
@@ -37,14 +38,14 @@ contract vUSDTest is Test {
     }
 
     function testCollateralRatioCannotBeZero() public {
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralRatio.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InvalidCollateralRatio.selector, 0));
         token.setCollateralRatio(0);
     }
 
     function testSetCollateralRatioBelow100Reverts() public {
         uint256 invalidRatio = 9e17; // 90%
 
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralRatio.selector, invalidRatio));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InvalidCollateralRatio.selector, invalidRatio));
         token.setCollateralRatio(invalidRatio);
     }
 
@@ -56,7 +57,7 @@ contract vUSDTest is Test {
         uint256 price = 2e18;
 
         vm.expectEmit(true, false, false, true);
-        emit vUSD.CollateralPriceUpdated(address(bob), 0, price); // old = 0 for first set
+        emit IvUSD.CollateralPriceUpdated(address(bob), 0, price); // old = 0 for first set
 
         token.setCollateralPrice(address(bob), price);
 
@@ -70,7 +71,7 @@ contract vUSDTest is Test {
     }
 
     function testCollateralPriceCannotBeZero() public {
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralPrice.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InvalidCollateralPrice.selector, 0));
         token.setCollateralPrice(address(bob), 0);
     }
 
@@ -80,7 +81,7 @@ contract vUSDTest is Test {
 
     function testOwnerCanSetAllowedCollateral() public {
         vm.expectEmit(true, false, false, true);
-        emit vUSD.AllowedCollateralUpdated(address(bob), false, true); // old = false
+        emit IvUSD.AllowedCollateralUpdated(address(bob), false, true); // old = false
 
         token.setAllowedCollateral(address(bob), true);
 

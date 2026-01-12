@@ -3,16 +3,10 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {vUSD} from "../src/vUSD.sol";
+import {IvUSD} from "../src/interfaces/IvUSD.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-
-contract MockERC20 is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
+import {MockERC20} from "./mocks/MockERC20.sol";
 
 contract FailingERC20 is ERC20 {
     constructor() ERC20("FailToken", "FAIL") {}
@@ -64,13 +58,13 @@ contract vUSDCollateralTest is Test {
         collateral.approve(address(token), depositAmount);
 
         vm.expectEmit(true, true, false, true);
-        emit vUSD.CollateralLocked(alice, address(collateral), depositAmount);
+        emit IvUSD.CollateralLocked(alice, address(collateral), depositAmount);
 
         uint256 collateralValueUsd = Math.mulDiv(depositAmount, price, 1e18);
         uint256 expectedMint = Math.mulDiv(collateralValueUsd, 1e18, 2e18);
 
         vm.expectEmit(true, false, false, true);
-        emit vUSD.vUSDMinted(alice, address(collateral), depositAmount, collateralValueUsd, expectedMint);
+        emit IvUSD.vUSDMinted(alice, address(collateral), depositAmount, collateralValueUsd, expectedMint);
 
         token.lockCollateral(address(collateral), depositAmount);
         vm.stopPrank();
@@ -95,10 +89,10 @@ contract vUSDCollateralTest is Test {
 
         // Expect events
         vm.expectEmit(true, true, true, true);
-        emit vUSD.vUSDBurned(address(alice), address(collateral), depositAmount, collateralValueUsd, expectedBurn);
+        emit IvUSD.vUSDBurned(address(alice), address(collateral), depositAmount, collateralValueUsd, expectedBurn);
 
         vm.expectEmit(true, true, true, true);
-        emit vUSD.CollateralUnlocked(address(alice), address(collateral), depositAmount);
+        emit IvUSD.CollateralUnlocked(address(alice), address(collateral), depositAmount);
 
         token.unlockCollateral(address(collateral), depositAmount);
         vm.stopPrank();
@@ -128,10 +122,10 @@ contract vUSDCollateralTest is Test {
 
         // Expect events
         vm.expectEmit(true, false, false, true);
-        emit vUSD.vUSDBurned(address(alice), address(collateral), unlockAmount, collateralValueUsd, expectedBurn);
+        emit IvUSD.vUSDBurned(address(alice), address(collateral), unlockAmount, collateralValueUsd, expectedBurn);
 
         vm.expectEmit(true, true, false, true);
-        emit vUSD.CollateralUnlocked(address(alice), address(collateral), unlockAmount);
+        emit IvUSD.CollateralUnlocked(address(alice), address(collateral), unlockAmount);
 
         token.unlockCollateral(address(collateral), unlockAmount);
         vm.stopPrank();
@@ -185,7 +179,7 @@ contract vUSDCollateralTest is Test {
         _setupCollateral(address(vETH), 2_000e18);
 
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidAmount.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InvalidAmount.selector, 0));
         token.lockCollateral(address(vETH), 0);
         vm.stopPrank();
     }
@@ -194,7 +188,7 @@ contract vUSDCollateralTest is Test {
         uint256 depositAmount = 100e18;
 
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(vUSD.CollateralNotAllowed.selector, address(vETH)));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.CollateralNotAllowed.selector, address(vETH)));
         token.lockCollateral(address(vETH), depositAmount);
         vm.stopPrank();
     }
@@ -238,7 +232,7 @@ contract vUSDCollateralTest is Test {
 
     function testUnlockCollateralFailsForZeroAmount() public {
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidAmount.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InvalidAmount.selector, 0));
         token.unlockCollateral(address(vETH), 0);
         vm.stopPrank();
     }
@@ -256,7 +250,7 @@ contract vUSDCollateralTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                vUSD.InsufficientCollateral.selector, address(vETH), depositAmount, depositAmount + 1
+                IvUSD.InsufficientCollateral.selector, address(vETH), depositAmount, depositAmount + 1
             )
         );
         token.unlockCollateral(address(vETH), depositAmount + 1);
@@ -281,7 +275,7 @@ contract vUSDCollateralTest is Test {
         uint256 expectedBurn =
             Math.mulDiv(Math.mulDiv(unlockAmount, token.collateralPrice(address(vETH)), 1e18), 1e18, 2e18);
 
-        vm.expectRevert(abi.encodeWithSelector(vUSD.InsufficientVUSDBalance.selector, expectedBurn, 0));
+        vm.expectRevert(abi.encodeWithSelector(IvUSD.InsufficientVUSDBalance.selector, expectedBurn, 0));
         token.unlockCollateral(address(vETH), unlockAmount);
         vm.stopPrank();
 
