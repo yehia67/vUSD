@@ -1,66 +1,74 @@
-## Foundry
+# vUSD Stablecoin
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview 
 
-Foundry consists of:
+vUSD is a collateral-backed stablecoin implemented in Solidity. Users can lock supported collateral assets to mint vUSD, and later repay vUSD to unlock their collateral.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+```mermaid
+sequenceDiagram
+    actor User
+    participant mETH
+    participant mUSD
 
-## Documentation
+    User->>mETH: Approve mUSD
+    mUSD->>mETH: transferFrom(User)
+    mUSD->>mUSD: Lock mETH
+    mUSD->>User: Mint mUSD
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+    User->>mUSD: Burn mUSD
+    mUSD->>mUSD: Unlock mETH
+    mUSD->>User: Return mETH
 ```
+## Key Features
 
-### Test
+- **Collateral Locking**: Users lock approved collateral assets (e.g., vETH, vDOT).
+- **Minting vUSD**: vUSD is minted based on:
+    - Collateral price
+    - A global collateral ratio
+- **Unlocking Collateral**: Users can partially or fully unlock collateral by burning vUSD.
+- **Management**: Prices, ratios, and allowed collateral are managed by the protocol owner.
+- **Focus on Safety**: The project emphasizes correctness, test coverage, and protocol safety.
 
-```shell
-$ forge test
-```
+This repository serves as a platform for protocol design exploration.
 
-### Format
 
-```shell
-$ forge fmt
-```
+## Prerequisites
 
-### Gas Snapshots
+This project uses [Foundry](https://foundry.paradigm.xyz/).
 
-```shell
-$ forge snapshot
-```
+### Installation Steps
 
-### Anvil
+1. **Install Foundry**:
+     ```bash
+     curl -L https://foundry.paradigm.xyz | bash
+     foundryup
+     ```
 
-```shell
-$ anvil
-```
+2. **Install Dependencies**:
+     ```bash
+     forge install
+     ```
+###  Build and test
 
-### Deploy
+3. **Build the Project**:
+     ```bash
+     forge build
+     ```
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+4. **Run Tests**:
+     ```bash
+     forge test
+     ```
 
-### Cast
+     For increased verbosity:
+     ```bash
+     forge test -vv
+     ```
 
-```shell
-$ cast <subcommand>
-```
+## Inspiration
 
-### Help
+The protocol is inspired by Liquity-style systems, particularly the concept of overcollateralized debt positions with explicit accounting. However, there is **no direct dependency on Liquity code**; This is an independent implementation.
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## Design Notes
+
+Collateral prices are assumed to be provided externally (e.g., via an oracle in a real deployment).
