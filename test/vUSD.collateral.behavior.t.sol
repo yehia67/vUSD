@@ -8,8 +8,6 @@ import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
-
-
 contract VUSDMultiCollateralBehaviorTest is Test {
     vUSD internal token;
     MockERC20 internal vETH;
