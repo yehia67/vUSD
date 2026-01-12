@@ -6,14 +6,9 @@ import {vUSD} from "../src/vUSD.sol";
 import {IvUSD} from "../src/interfaces/IvUSD.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
 
-contract MockERC20 is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
 
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
 
 contract VUSDMultiCollateralBehaviorTest is Test {
     vUSD internal token;
@@ -34,7 +29,7 @@ contract VUSDMultiCollateralBehaviorTest is Test {
         token.setAllowedCollateral(address(vETH), true);
         token.setAllowedCollateral(address(vDOT), true);
 
-        token.setCollateralPrice(address(vETH), 2_000e18); // $2000
+        token.setCollateralPrice(address(vETH), 3_000e18); // $3000
         token.setCollateralPrice(address(vDOT), 2e18); // $2
 
         // Fund Alice
