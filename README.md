@@ -1,19 +1,73 @@
-## Foundry
+# vUSD Stablecoin
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview 
 
-Foundry consists of:
+vUSD is a collateral-backed stablecoin implemented in Solidity. Users can lock supported collateral assets to mint vUSD, and later repay vUSD to unlock their collateral.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+```mermaid
+sequenceDiagram
+    actor User
+    participant vETH/vDOT
+    participant vUSD
 
-## Documentation
+    User->>vETH/vDOT: Approve vUSD
+    vUSD->>vETH/vDOT: transferFrom(User)
+    vUSD->>vUSD: Lock vETH/vDOT
+    vUSD->>User: Mint vUSD
 
-https://book.getfoundry.sh/
+    User->>vUSD: Burn vUSD
+    vUSD->>vUSD: Unlock vETH/vDOT
+    vUSD->>User: Return vETH/vDOT
+```
+## Key Features
 
-## Environment Setup
+- **Collateral Locking**: Users lock approved collateral assets (e.g., vETH, vDOT).
+- **Minting vUSD**: vUSD is minted based on:
+    - Collateral price
+    - A global collateral ratio
+- **Unlocking Collateral**: Users can partially or fully unlock collateral by burning vUSD.
+- **Management**: Prices, ratios, and allowed collateral are managed by the protocol owner.
+- **Focus on Safety**: The project emphasizes correctness, test coverage, and protocol safety.
+
+This repository serves as a platform for protocol design exploration.
+
+
+## Prerequisites
+
+
+This project uses [Foundry](https://foundry.paradigm.xyz/).
+
+### Installation Steps
+
+1. **Install Foundry**:
+     ```bash
+     curl -L https://foundry.paradigm.xyz | bash
+     foundryup
+     ```
+
+2. **Install Dependencies**:
+     ```bash
+     forge install
+     ```
+###  Build and test
+
+3. **Build the Project**:
+     ```bash
+     forge build
+     ```
+
+4. **Run Tests**:
+     ```bash
+     forge test
+     ```
+
+     For increased verbosity:
+     ```bash
+     forge test -vv
+     ```
+
+
+## Environment Variables For Deployment
 
 1. Copy `.env.example` to `.env`:
    ```shell
@@ -23,38 +77,6 @@ https://book.getfoundry.sh/
    - `RPC_URL` – Base Sepolia RPC endpoint (e.g., Alchemy/Infura)
    - `PRIVATE_KEY` – Deployer private key (0x-prefixed)
    - `ETHERSCAN_API_KEY` – Basescan/Etherscan API key for contract verification
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
 
 
 ### Deploy & Verify (Base Sepolia)
@@ -81,16 +103,12 @@ forge script script/DeployVUSD.s.sol:DeployVUSD \
 Development tasks and feature progress are tracked publicly using GitHub Projects:
 
 https://github.com/users/yehia67/projects/5
-### Cast
 
-```shell
-$ cast <subcommand>
-```
+## Inspiration
 
-### Help
+The protocol is inspired by Liquity-style systems, particularly the concept of overcollateralized debt positions with explicit accounting. However, there is **no direct dependency on Liquity code**; This is an independent implementation.
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## License
+This project is released under the [MIT License](./LICENSE).
+
+
