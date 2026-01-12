@@ -27,7 +27,7 @@ contract VUSDMultiCollateralBehaviorTest is Test {
         token.setAllowedCollateral(address(vETH), true);
         token.setAllowedCollateral(address(vDOT), true);
 
-        token.setCollateralPrice(address(vETH), 3_000e18); // $3000
+        token.setCollateralPrice(address(vETH), 2_000e18); // $2000
         token.setCollateralPrice(address(vDOT), 2e18); // $2
 
         // Fund Alice
