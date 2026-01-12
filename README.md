@@ -70,6 +70,17 @@ forge script script/DeployVUSD.s.sol:DeployVUSD \
   --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
+### Deployed Contracts (Base Sepolia)
+
+- Mock vETH: [0xAeD88bFC17C1700291FD8d59c155a377e79E16F7](https://sepolia.basescan.org/address/0xAeD88bFC17C1700291FD8d59c155a377e79E16F7)
+- Mock vDOT: [0x135078823F9FaA95BB1761e02F4BE1D20fB56328](https://sepolia.basescan.org/address/0x135078823F9FaA95BB1761e02F4BE1D20fB56328)
+- vUSD: [0xa873aafC84eef54Aee3c0b1705DEd9CB35Fb6715](https://sepolia.basescan.org/address/0xa873aafC84eef54Aee3c0b1705DEd9CB35Fb6715)
+
+## Project Progress & Task Dashboard
+
+Development tasks and feature progress are tracked publicly using GitHub Projects:
+
+https://github.com/users/yehia67/projects/5
 ### Cast
 
 ```shell
