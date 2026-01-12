@@ -16,7 +16,7 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard, IvUSD {
                                STORAGE
     //////////////////////////////////////////////////////////////*/
 
-  // Protocol config
+    // Protocol config
     uint256 public constant MIN_COLLATERAL_RATIO = 1e18;
     uint256 public collateralRatio = 1e18;
     mapping(address => bool) public isAllowedCollateral;
