@@ -7,15 +7,16 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IvUSD.sol";
 
-contract vUSD is ERC20, Ownable, ReentrancyGuard {
+contract vUSD is ERC20, Ownable, ReentrancyGuard, IvUSD {
     using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
                                STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    // Protocol config
+// Protocol config
     uint256 public constant MIN_COLLATERAL_RATIO = 1e18;
     uint256 public collateralRatio = 1e18;
     mapping(address => bool) public isAllowedCollateral;
@@ -24,41 +25,6 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard {
     // User balances
     mapping(address => mapping(address => uint256)) public collateralBalances; // user -> asset -> amount
     mapping(address => mapping(address => uint256)) public debtBalances; // user -> asset -> vUSD minted
-
-    /*//////////////////////////////////////////////////////////////
-                                EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    event CollateralRatioUpdated(uint256 oldRatio, uint256 newRatio);
-    event CollateralPriceUpdated(address indexed asset, uint256 oldPrice, uint256 newPrice);
-    event AllowedCollateralUpdated(address indexed asset, bool oldAllowed, bool newAllowed);
-    event CollateralLocked(address indexed user, address indexed asset, uint256 amount);
-    event vUSDMinted(
-        address indexed user,
-        address indexed asset,
-        uint256 collateralAmount,
-        uint256 collateralUsdValue,
-        uint256 mintAmount
-    );
-    event CollateralUnlocked(address indexed user, address indexed asset, uint256 amount);
-    event vUSDBurned(
-        address indexed user,
-        address indexed asset,
-        uint256 collateralAmount,
-        uint256 collateralUsdValue,
-        uint256 burnedAmount
-    );
-
-    /*//////////////////////////////////////////////////////////////
-                             CUSTOM ERRORS
-    //////////////////////////////////////////////////////////////*/
-
-    error InvalidCollateralRatio(uint256 attempted);
-    error InvalidCollateralPrice(uint256 attempted);
-    error CollateralNotAllowed(address asset);
-    error InvalidAmount(uint256 attempted);
-    error InsufficientCollateral(address asset, uint256 available, uint256 requested);
-    error InsufficientVUSDBalance(uint256 required, uint256 available);
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
@@ -121,7 +87,12 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard {
                        COLLATERAL & MINTING
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Lock collateral and mint vUSD
+    /**
+     * @notice Locks collateral and mints vUSD against it
+     * @dev Transfers collateral from user to contract and mints maximum possible vUSD
+     * @param asset The address of the collateral asset to lock
+     * @param amount The amount of collateral to lock
+     */
     function lockCollateral(address asset, uint256 amount) external {
         _validateCollateral(asset, amount);
 
@@ -145,7 +116,12 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard {
         emit vUSDMinted(msg.sender, asset, amount, collateralValueUsd, maxMintable);
     }
 
-    /// @notice Repay vUSD and unlock collateral
+    /**
+     * @notice Repays vUSD and unlocks collateral
+     * @dev Burns vUSD and returns equivalent collateral to user
+     * @param asset The address of the collateral asset to unlock
+     * @param collateralAmount The amount of collateral to unlock
+     */
     function unlockCollateral(address asset, uint256 collateralAmount) external nonReentrant {
         _validateCollateral(asset, collateralAmount);
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {vUSD} from "../src/vUSD.sol";
+import {IvUSD} from "../src/interfaces/IvUSD.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -173,7 +174,7 @@ contract VUSDMultiCollateralBehaviorTest is Test {
 
         // Expect events
         vm.expectEmit(true, true, true, true);
-        emit vUSD.vUSDBurned(
+        emit IvUSD.vUSDBurned(
             address(alice),
             address(vETH),
             halfCollateralAmount,
@@ -182,7 +183,7 @@ contract VUSDMultiCollateralBehaviorTest is Test {
         );
 
         vm.expectEmit(true, true, false, true);
-        emit vUSD.CollateralUnlocked(address(alice), address(vETH), halfCollateralAmount);
+        emit IvUSD.CollateralUnlocked(address(alice), address(vETH), halfCollateralAmount);
 
         // Unlock collateral
         vm.startPrank(address(alice));
