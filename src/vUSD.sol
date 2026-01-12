@@ -16,7 +16,8 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     // Protocol config
-    uint256 public collateralRatio; // 1e18 precision
+    uint256 public constant MIN_COLLATERAL_RATIO = 1e18;
+    uint256 public collateralRatio = 1e18;
     mapping(address => bool) public isAllowedCollateral;
     mapping(address => uint256) public collateralPrice;
 
@@ -96,7 +97,9 @@ contract vUSD is ERC20, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     function _validateCollateralRatio(uint256 newRatio) internal pure {
-        if (newRatio == 0) revert InvalidCollateralRatio(newRatio);
+        if (newRatio < MIN_COLLATERAL_RATIO) {
+            revert InvalidCollateralRatio(newRatio);
+        }
     }
 
     function _validateCollateralPrice(uint256 price) internal pure {

@@ -23,7 +23,7 @@ contract vUSDTest is Test {
         uint256 newRatio = 1.5e18;
 
         vm.expectEmit(true, false, false, true);
-        emit vUSD.CollateralRatioUpdated(0, newRatio); // old = 0 for first set
+        emit vUSD.CollateralRatioUpdated(1e18, newRatio); // old = 1e18 for first set
 
         token.setCollateralRatio(newRatio);
 
@@ -39,6 +39,13 @@ contract vUSDTest is Test {
     function testCollateralRatioCannotBeZero() public {
         vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralRatio.selector, 0));
         token.setCollateralRatio(0);
+    }
+
+    function testSetCollateralRatioBelow100Reverts() public {
+        uint256 invalidRatio = 9e17; // 90%
+
+        vm.expectRevert(abi.encodeWithSelector(vUSD.InvalidCollateralRatio.selector, invalidRatio));
+        token.setCollateralRatio(invalidRatio);
     }
 
     /*//////////////////////////////////////////////////////////////
