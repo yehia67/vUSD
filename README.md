@@ -13,6 +13,17 @@ Foundry consists of:
 
 https://book.getfoundry.sh/
 
+## Environment Setup
+
+1. Copy `.env.example` to `.env`:
+   ```shell
+   cp .env.example .env
+   ```
+2. Fill in the required values:
+   - `RPC_URL` – Base Sepolia RPC endpoint (e.g., Alchemy/Infura)
+   - `PRIVATE_KEY` – Deployer private key (0x-prefixed)
+   - `ETHERSCAN_API_KEY` – Basescan/Etherscan API key for contract verification
+
 ## Usage
 
 ### Build
@@ -45,10 +56,18 @@ $ forge snapshot
 $ anvil
 ```
 
-### Deploy
+
+### Deploy & Verify (Base Sepolia)
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+forge script script/DeployVUSD.s.sol:DeployVUSD \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --verify \
+  --verifier etherscan \
+  --verifier-url "https://api.etherscan.io/v2/api?chainid=84532" \
+  --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### Cast
