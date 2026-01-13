@@ -23,12 +23,12 @@ Risk controls, liquidation sophistication, and user-facing UX are intentionally 
 * Collateral is tracked per user and per asset:
 
   ```solidity
-  mapping(address => mapping(address => uint256)) collateralBalances;
+    mapping(address => mapping(address => uint256)) public collateralBalances; // user -> asset -> amount
   ```
 * Debt is tracked per user:
 
   ```solidity
-  mapping(address => uint256) userDebt;
+    mapping(address => mapping(address => uint256)) public debtBalances; // user -> asset -> vUSD minted
   ```
 
 **Assumption:**
