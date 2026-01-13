@@ -104,6 +104,9 @@ Development tasks and feature progress are tracked publicly using GitHub Project
 
 https://github.com/users/yehia67/projects/5
 
+## Design Notes
+All design notes for each iteration can be found [/docs/design-notes/](./docs/design-notes/)
+
 ## Inspiration
 
 The protocol is inspired by Liquity-style systems, particularly the concept of overcollateralized debt positions with explicit accounting. However, there is **no direct dependency on Liquity code**; This is an independent implementation.
